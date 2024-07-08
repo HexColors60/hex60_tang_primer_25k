@@ -1,0 +1,179 @@
+TX is the C3, RX is the B3. We need to change the example UART cst file.
+Set the CPU, READY, DONE pin to the dual purpose pins.
+In Standard edition IDE, after load the gprj file, it will find the GW5A-LV25MG121NES correctly.
+In Educational edition IDE, I need to config it to GW5A-LV25MG121NC1/I0 and version A.
+The two windows IDE both work for me.
+I just build the small CPU and BIOS on it.
+
+In my build machine:
+OS: Ubuntu 22.04.2 LTS
+
+pip install migen
+pip install litex
+pip3 install git+https://github.com/litex-hub/pythondata-cpu-vexriscv.git
+pip3 install git+https://github.com/litex-hub/pythondata-software-picolibc.git
+pip3 install git+https://github.com/litex-hub/pythondata-software-compiler_rt.git
+
+git clone https://github.com/litex-hub/litex-boards.git
+cd litex-boards
+
+mybuild.sh:
+export CROSS_COMPILE=riscv64-linux-gnu-
+echo Check /home/user/.local/lib/python3.10/site-packages/litex/build/gowin/gowin.py
+echo Download https://cdn.gowinsemi.com.cn/Gowin_V1.9.9.03_Education_linux.tar.gz
+echo "/home/user/.local/lib/python3.10/site-packages/litex/build/gowin/gowin.py", line 173, in run_script
+echo gw_sh = "gw_sh"
+echo "/tmp/opt/IDE/bin/gw_sh"
+export PATH="/tmp/opt/IDE/bin/:$PATH"
+python3 -m litex_boards.targets.sipeed_tang_primer_25k --build
+
+ls build/sipeed_tang_primer_25k/gateware/sipeed_tang_primer_25k.cst
+ls build/sipeed_tang_primer_25k/gateware/sipeed_tang_primer_25k.fs
+ls build/sipeed_tang_primer_25k/gateware/sipeed_tang_primer_25k.v
+ls build/sipeed_tang_primer_25k/gateware/sipeed_tang_primer_25k_rom.init
+ls build/sipeed_tang_primer_25k/gateware/sipeed_tang_primer_25k_sram.init
+ls build/sipeed_tang_primer_25k/gateware/sipeed_tang_primer_25k_mem.init
+
+In the Windows:
+Create a new project with Gowin the IDE.
+Copy sipeed_tang_primer_25k.v and sipeed_tang_primer_25k.cst and *.init into c:\src\litex25k\src\
+Mouse right button and add *.v, *.cst file into the project.
+Run all => Fail.
+ERROR (EX3937) : Instantiating unknown module 'VexRiscv'("C:\src\litex25k\src\sipeed_tang_primer_25k.v":1902)
+
+Close all project.
+
+C:\src\litex25k\>notepad litex25k.gprj.user
+Change XML item "<ResultFileList/>" to
+    <ResultFileList>
+        <ResultFile ResultFileType="RES.pnr.bitstream" ResultFilePath="impl/pnr/sipeed_tang_primer_25k.fs"/>
+    </ResultFileList>
+Create impl/pnr/ and copy sipeed_tang_primer_25k.fs into it.
+Open this project and open programmer to load the bitstream.
+It can run now.
+
+Fix:
+Copy /home/user/.local/lib/python3.10/site-packages/pythondata_cpu_vexriscv/verilog/VexRiscv.v
+into the src and add the file into project.
+Run all:
+Running placement......
+ERROR  (PR2028) : The constrained location is useless in current package
+ERROR  (PR2017) : 'led0' cannot be placed according to constraint, for the location is a dedicated pin (READY)
+ERROR  (PR2028) : The constrained location is useless in current package
+ERROR  (PR2017) : 'led1' cannot be placed according to constraint, for the location is a dedicated pin (DONE)
+Set the CPU, READY, DONE pin to the dual purpose pins.
+Check the file sipeed_tang_primer_25k.cst:
+IO_LOC "serial_rx" B3;
+IO_LOC "serial_tx" C3;
+
+Run all again.
+Bitstream generation completed
+Generate file "C:\src\litex25k\impl\pnr\litex25k.pin.html" completed
+Generate file "C:\src\litex25k\impl\pnr\litex25k.rpt.html" completed
+Generate file "C:\src\litex25k\impl\pnr\litex25k.rpt.txt" completed
+Generate file "C:\src\litex25k\impl\pnr\litex25k.tr.html" completed
+Mon Jul  8 14:41:02 2024
+
+Check Resource Utilization Summary:
+Resource        Usage   Utilization
+Logic   3696(3224 LUT, 472 ALU) / 23040 17%
+Register        2011 / 23280    9%
+  --Register as Latch   0 / 23280       0%
+  --Register as FF      2011 / 23280    9%
+BSRAM   30 / 56 54%
+
+Check the demo source code:
+/home/user/.local/lib/python3.10/site-packages/litex/soc/software/bios/main.c:
+  printf("\e[1m   Build your hardware, easil !\e[0m\n");
+/home/user/.local/lib/python3.10/site-packages/litex/soc/integration/soc.py:
+  self.logger.info(colorer("  Build your hardware, easily!", color="bright"))
+/home/user/.local/lib/python3.10/site-packages/litex/gen/fhdl/verilog.py:
+  // Build your hardware, easily!
+
+/home/user/.local/lib/python3.10/site-packages/litex/soc/software/bios/cmds/cmd_mem.c
+  static void mem_list_handler(int nb_params, char **params)
+  {
+        printf("Available memory regions:\n");
+        puts(MEM_REGIONS);
+  }
+
+Check the meson build:
+build/sipeed_tang_primer_25k/software/libc/compile_commands.json
+
+Check the bios:
+build/sipeed_tang_primer_25k/software/bios/bios.elf
+
+After burn, the UART can access our input.
+The wrong ls and dir commands are typed by me.
+        __   _ __      _  __
+       / /  (_) /____ | |/_/
+      / /__/ / __/ -_)>  <
+     /____/_/\__/\__/_/|_|
+   Build your hardware, easily!
+
+ (c) Copyright 2012-2023 Enjoy-Digital
+ (c) Copyright 2007-2015 M-Labs
+
+ BIOS built on Jul  8 2024 11:42:26
+ BIOS CRC passed (04b67d0c)
+
+ LiteX git sha1: --------
+
+--=============== SoC ==================--
+CPU:            VexRiscv @ 50MHz
+BUS:            WISHBONE 32-bit @ 4GiB
+CSR:            32-bit data
+ROM:            128.0KiB
+SRAM:           8.0KiB
+
+
+--============== Boot ==================--
+Booting from serial...
+Press Q or ESC to abort boot completely.
+sL5DdSMmkekro
+             Timeout
+No boot medium found
+
+--============= Console ================--
+
+litex> ls
+Command not found
+litex> dir
+Command not found
+litex> help
+
+LiteX BIOS, available commands:
+
+leds                     - Set Leds value
+buttons                  - Get Buttons value
+flush_cpu_dcache         - Flush CPU data cache
+crc                      - Compute CRC32 of a part of the address space
+ident                    - Identifier of the system
+help                     - Print this help
+
+serialboot               - Boot from Serial (SFL)
+reboot                   - Reboot
+boot                     - Boot from Memory
+
+mem_cmp                  - Compare memory content
+mem_speed                - Test memory speed
+mem_test                 - Test memory access
+mem_copy                 - Copy address space
+mem_write                - Write address space
+mem_read                 - Read address space
+mem_list                 - List available memory regions
+
+litex> mem_list
+Available memory regions:
+ROM   0x00000000 0x20000
+SRAM  0x10000000 0x2000
+CSR   0xf0000000 0x10000
+
+litex> mem_read 0x10000000
+Memory dump:
+0x10000000  60 0e 00 00     `...
+
+litex> ident
+Ident: LiteX SoC on Tang Primer 25K 2024-07-08 11:42:25
+litex>
+
